@@ -1,18 +1,16 @@
 # Notes
 
 ## Summary of Changes
-- **SQL / Database (`TaskRepository.java`, `search_tasks.sql`, `task_search_package.sql`)**: Fixed operator precedence by wrapping title/description OR conditions in parentheses, preventing archived task leakage and status filter bypass on title matches. Added `id DESC` tie-breaker for deterministic sorting.
-- **Backend Controller (`TaskController.java`)**: Added input validation returning HTTP 400 for invalid statuses and non-positive page/pageSize values. Removed artificial `Thread.sleep` delay.
-- **Frontend (`useTasks.js`, `App.jsx`)**: Handled loading state in catch block, cleared stale errors, eliminated race conditions via an ignore flag, and reset pagination to page 1 on filter changes.
-- **Tests (`pom.xml`, `TaskControllerTest.java`)**: Added `spring-boot-starter-test` and 8 automated regression tests covering search, status filtering, archived exclusion, pagination, and validation.
+- **Root Cause & Query Correctness (`TaskRepository`, SQL, Oracle)**: Operator precedence caused `AND` to bind tighter than `OR`, evaluating `(archived=0 AND title) OR (desc AND status)`. This leaked archived tasks when descriptions matched and bypassed status filtering on title matches. I added parentheses to group the title/description `OR` predicates and appended `id DESC` for deterministic pagination.
+- **Backend Validation & Throttling (`TaskController`)**: Removed artificial `Thread.sleep` that stalled short queries for 1s. Validated `page < 1`, `pageSize < 1`, and `TaskStatus.valueOf`, returning HTTP 400 instead of crashing with 500 errors.
+- **Frontend State Integrity (`useTasks`, `App`)**: Handled loading state in `catch`, cleared errors on new fetches, added an `ignore` flag to discard stale out-of-order responses, and reset pagination to page 1 on filter changes.
 
 ## What I Deliberately Left Unchanged and Why
-- **In-memory pagination**: Maintained existing repository contract (`List<Task>` with `subList`) instead of rewriting to Spring Data `Pageable`, preserving minimal diff scope.
-- **Database schema and seed data**: Kept H2 schema and `data.sql` intact to preserve environment compatibility.
-- **Frontend styling**: Retained existing Vanilla CSS and UI component structure.
+- **Trade-offs**: I kept in-memory `subList` pagination rather than rewriting the data layer to Spring Data `Pageable`. A focused, high-precision patch avoids breaking API contracts or introducing unnecessary ORM churn within the timebox.
+- Maintained existing Vanilla CSS, component structure, and H2 database configuration.
 
 ## Biggest Remaining Risk
-The backend loads all matching rows into JVM memory before slicing with `subList`. For large production datasets, this will cause memory pressure and high query latency. It should be replaced with database-level pagination (`LIMIT`/`OFFSET` or JPA `Pageable`).
+In-memory pagination loads all matching entities into JVM memory before slicing. Under high row volume, this will induce heap pressure and database I/O bottlenecks. Future work should implement SQL `LIMIT`/`OFFSET` via Spring Data `Pageable`.
 
 ## Tools and AI Used
-Used AI assistance for initial exploration, drafting test assertions, and structuring notes. Manually inspected root causes, reproduced bugs via curl, implemented targeted fixes, and verified results via Maven tests and Vite build.
+I used AI as a conversational rubber-duck to brainstorm edge cases and quickly draft boilerplate test assertions. I personally analyzed the AST operator precedence bug, deduced the negative `subList` index failure, authored the fixes, and verified everything locally via 8 passing JUnit tests, curl benchmarks, and Vite builds.
