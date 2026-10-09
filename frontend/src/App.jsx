@@ -13,6 +13,16 @@ export default function App() {
 
   const totalPages = Math.ceil(total / 10);
 
+  const handleQueryChange = (newQuery) => {
+    setQuery(newQuery);
+    setPage(1);
+  };
+
+  const handleStatusChange = (newStatus) => {
+    setStatus(newStatus);
+    setPage(1);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -21,8 +31,8 @@ export default function App() {
       </header>
 
       <div className="controls">
-        <SearchBar value={query} onChange={setQuery} />
-        <StatusFilter value={status} onChange={setStatus} />
+        <SearchBar value={query} onChange={handleQueryChange} />
+        <StatusFilter value={status} onChange={handleStatusChange} />
       </div>
 
       <TaskTable tasks={tasks} loading={loading} error={error} />
